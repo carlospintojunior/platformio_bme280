@@ -102,6 +102,25 @@ uint32_t compensatePressure(int32_t adc_P) {
   return (uint32_t)p;
 }
 
+// compensação em float para pressão, retorna Pa
+float compensatePressureFloat(int32_t adc_P) {
+  float var1 = ((float)t_fine / 2.0f) - 64000.0f;
+  float var2 = var1 * var1 * (float)dig_P6 / 32768.0f;
+  var2  = var2 + var1 * (float)dig_P5 * 2.0f;
+  var2  = (var2 / 4.0f) + ((float)dig_P4 * 65536.0f);
+  var1  = (((float)dig_P3 * var1 * var1) / 524288.0f + ((float)dig_P2 * var1)) / 524288.0f;
+  var1  = (1.0f + var1 / 32768.0f) * (float)dig_P1;
+  if (fabs(var1) < 0.0001f) return 0;  // evita divisão por zero
+
+  float p = 1048576.0f - (float)adc_P;
+  p = (p - (var2 / 4096.0f)) * 6250.0f / var1;
+  var1 = ((float)dig_P9 * p * p) / 2147483648.0f;
+  var2 = (p * (float)dig_P8) / 32768.0f;
+  p    = p + (var1 + var2 + (float)dig_P7) / 16.0f;
+
+  return p;
+}
+
 // Compensação de umidade (RH *1024)
 uint32_t compensateHumidity(int32_t adc_H) {
   int32_t v_x1 = t_fine - ((int32_t)76800);
@@ -150,9 +169,12 @@ void loop() {
   int32_t  T  = compensateTemperature(adc_T);      // em centésimos de °C
   uint32_t P  = compensatePressure(adc_P);         // em Pa
   uint32_t H  = compensateHumidity(adc_H);         // em milésimos de %RH
+  float P_pa  = compensatePressureFloat(adc_P);
+  float P_hpa = P_pa / 100.0f;
 
   Serial.print("T = "); Serial.print(T / 100.0); Serial.print(" °C\t");
-  Serial.print("P = "); Serial.print(P / 100.0); Serial.print(" hPa\t");
+  // Serial.print("P = "); Serial.print(P / 100.0); Serial.print(" hPa\t");
+  Serial.print("P = "); Serial.print(P_hpa); Serial.println(" hPa");
   Serial.print("H = "); Serial.print(H / 1024.0); Serial.println(" %");
 
   delay(1000);
